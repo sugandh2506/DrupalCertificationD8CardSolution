@@ -1,0 +1,72 @@
+<?php
+
+
+use Drupal\block\Entity\Block;
+use \Drupal\block_content\BlockContentInterface;
+use Drupal\block_content\Entity\BlockContent;
+
+/**
+ * Implements hook_preprocess_block().
+ */
+function c11n_blocks_iteration_preprocess_block(&$variables) {
+
+  // I was trying to update fields of custom block type
+  // I realised, first thing that I need in order to update fields is the number of block ids
+  // for blocks iteration. Now, its easy to get block ids of particular block type
+  // because block is an entity.
+  // I'hv also figured out you can load block id by uuid of block. 
+  // Lets see uuids of block content.
+  $blockManager = \Drupal::service('plugin.manager.block');
+  $contextRepository = \Drupal::service('context.repository');
+
+   // Get blocks definition
+   $definitions = $blockManager->getDefinitionsForContexts(
+   $contextRepository->getAvailableContexts()
+  );
+  $figuring_out_uuids = array_keys($definitions);
+  //kint($figuring_out_uuids);
+
+  // Figuring out block type
+  $uuid = "fbdbe4fe-84ac-461c-bcfd-78782a7f8cd0";
+  $block = \Drupal::service('entity.repository')->loadEntityByUuid('block_content', $uuid);
+  //kint($block);
+ 
+  // Getting all block ids of custom content block
+  $block_ids = \Drupal::entityQuery('block_content')->condition('type','stock_exchange_rate_card')->execute();
+  foreach ($block_ids as $key => $value) {
+    $blocks = \Drupal\block_content\Entity\BlockContent::loadMultiple([$value]);
+  }
+  foreach($blocks as $key1 => $value1) {
+    $symbol_value = $value1->get('field_symbol')->getValue();
+  	$symbol = $symbol_value[0]['value'];
+  	$stock_data = _fetch_stock_symbol($symbol);
+  	$value1->set("field_last_price", $stock_data['LastPrice']);
+   	$value1->set("field_change", $stock_data['Change']);
+   	$value1->save();
+ }
+}
+
+function _fetch_stock_symbol($symbol) {
+  $stockData = [];
+  $uri = 'http://dev.markitondemand.com/MODApis/Api/v2/Quote/jsonp?symbol='.$symbol.'&callback=myFunction';
+  
+  try {
+    $response = \Drupal::httpClient()->get($uri, array('headers' => array('Accept' => 'text/plain')));
+    $data = (string) $response->getBody();
+    if (empty($data)) {
+      return FALSE;
+    }
+  }
+  catch (RequestException $e) {
+    return FALSE;
+  }
+
+  // converting jsonp to array
+  $exp = str_replace('myFunction(', '', $data);
+  $exp2 = str_replace(')', '', $exp);
+  $jsonArray = json_decode($exp2);
+ 
+  $stockData = ['LastPrice'=>$jsonArray->LastPrice, 'Change'=>$jsonArray->Change];
+  return $stockData;
+  
+}
