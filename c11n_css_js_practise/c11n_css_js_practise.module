@@ -1,0 +1,18 @@
+<?php
+
+function c11n_css_js_practise_element_info_alter(array &$info) {
+
+ // $info['table'] will not work here. hook_page_attachment can be the alternative here. 
+
+  if (isset($info['table'])) {
+  	$info['table']['#attached']['library'][] = 'c11n_css_js_practise/c11n_css_js_practise';
+  }
+  //kint($info);
+}
+
+/**
+ * hook_preprocess_block
+ */
+function c11n_css_js_practise_preprocess_block(&$variables) {
+	$variables['#attached']['library'][] = 'c11n_css_js_practise/c11n_css_js_practise';
+}
